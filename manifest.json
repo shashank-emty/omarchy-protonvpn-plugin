@@ -20,7 +20,9 @@
     "defaultSection": "right",
     "defaults": {
       "refreshIntervalSec": 5,
-      "protocol": "WireGuard"
+      "protocol": "WireGuard",
+      "pauseMinutes": 5,
+      "publicIpLookup": false
     },
     "schema": [
       {
@@ -43,6 +45,23 @@
           "OpenVPN"
         ],
         "defaultValue": "WireGuard"
+      },
+      {
+        "key": "pauseMinutes",
+        "type": "integer",
+        "label": "Pause duration (minutes)",
+        "description": "How long the pause button suspends the tunnel for.",
+        "min": 1,
+        "max": 1440,
+        "step": 1,
+        "defaultValue": 5
+      },
+      {
+        "key": "publicIpLookup",
+        "type": "boolean",
+        "label": "Look up public IP",
+        "description": "Ask api.ivpn.net for your public address so the map can show your real location and ISP. Off by default: it is the widget's only network request.",
+        "defaultValue": false
       }
     ]
   }

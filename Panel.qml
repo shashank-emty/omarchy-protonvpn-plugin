@@ -13,6 +13,7 @@ Panel {
 
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property color urgent: bar ? bar.urgent : Color.urgent
+  readonly property color accent: Color.accent
   readonly property color dim: Qt.darker(foreground, 1.55)
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
   readonly property color iconColor: ivpn.unavailable || !ivpn.loggedIn ? urgent : (ivpn.active ? foreground : dim)
@@ -22,9 +23,11 @@ Panel {
   readonly property string toggleHint: ivpn.active ? "Disconnect" : "Connect"
   readonly property string tooltip: {
     if (!ivpn.loggedIn) return "IVPN — not logged in"
-    if (ivpn.connected && ivpn.serverLabel !== "") return "IVPN — " + ivpn.serverLabel
+    if (ivpn.connected && ivpn.serverCity !== "") return "IVPN — " + ivpn.serverCity
     return "IVPN — " + ivpn.statusText
   }
+
+  property bool firewallConfirmOpen: false
 
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
@@ -37,6 +40,17 @@ Panel {
   onOpenedChanged: if (opened) {
     ivpn.refresh()
     Qt.callLater(function() { keyCatcher.forceActiveFocus() })
+  } else {
+    root.firewallConfirmOpen = false
+  }
+
+  // Enabling the kill switch while the tunnel is down blocks everything, which
+  // is easy to trigger by accident and confusing to diagnose. Turning it off
+  // never needs a confirmation.
+  function requestFirewall() {
+    if (ivpn.firewallOn) { ivpn.setFirewall(false); return }
+    if (ivpn.connected) { ivpn.setFirewall(true); return }
+    root.firewallConfirmOpen = true
   }
 
   IpcHandler {
@@ -47,7 +61,9 @@ Panel {
     function hide(): void { root.close() }
     function toggle(): void { root.toggle() }
     function connect(): void { if (!ivpn.connected) ivpn.toggle() }
-    function disconnect(): void { if (ivpn.connected) ivpn.toggle() }
+    function disconnect(): void { if (ivpn.connected || ivpn.paused) ivpn.toggle() }
+    function pause(): void { ivpn.pause(ivpn.pauseMinutes) }
+    function resume(): void { ivpn.resume() }
     function refresh(): string { ivpn.refresh(); return "ok" }
     function status(): string { return ivpn.statusText }
   }
@@ -73,19 +89,24 @@ Panel {
     bar: root.bar
     open: root.opened
     focusTarget: keyCatcher
-    contentWidth: panel.fittedContentWidth(Style.space(340))
-    contentHeight: panel.fittedContentHeight(column.implicitHeight, Style.space(340))
+    contentWidth: panel.fittedContentWidth(Style.space(360))
+    // No height cap: fittedContentHeight's second argument is a maximum, and
+    // capping it clips the map and everything below. The panel is still bound
+    // by the screen through availableCardHeight.
+    contentHeight: panel.fittedContentHeight(column.implicitHeight)
 
     PanelKeyCatcher {
       id: keyCatcher
       anchors.fill: parent
-      blocked: serverPicker.popupOpen
+      blocked: serverPicker.popupOpen || root.firewallConfirmOpen
       onCloseRequested: root.close()
       onTabRequested: function(direction) { root.switchPanel(direction) }
       onTextKey: function(t) {
         if (t === "r" || t === "R") ivpn.refresh()
         else if (t === "c" || t === "C") ivpn.toggle()
-        else if (t === "f" || t === "F") ivpn.toggleFirewall()
+        else if (t === "f" || t === "F") root.requestFirewall()
+        else if (t === "a" || t === "A") ivpn.toggleAntitracker()
+        else if (t === "p" || t === "P") { if (ivpn.paused) ivpn.resume(); else ivpn.pause(ivpn.pauseMinutes) }
       }
 
       Column {
@@ -147,6 +168,65 @@ Panel {
           wrapMode: Text.WordWrap
         }
 
+        WorldMap {
+          id: map
+          width: parent.width
+          foreground: root.foreground
+          accent: root.accent
+          home: ivpn.homeCoords
+          server: ivpn.serverCoords
+          hop: ivpn.exitCoords
+          connected: ivpn.connected
+        }
+
+        // Map legend: which dot is which, and the addresses behind them.
+        Row {
+          width: parent.width
+          spacing: Style.space(10)
+
+          Column {
+            width: (parent.width - Style.space(10)) / 2
+            spacing: Style.space(2)
+            Text {
+              text: "◍ " + (ivpn.homeLabel !== "" ? ivpn.homeLabel : "Home")
+              color: root.foreground
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.bodySmall
+              elide: Text.ElideRight
+              width: parent.width
+            }
+            Text {
+              text: ivpn.homeDetail
+              color: root.dim
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.caption
+              elide: Text.ElideRight
+              width: parent.width
+            }
+          }
+
+          Column {
+            width: (parent.width - Style.space(10)) / 2
+            spacing: Style.space(2)
+            Text {
+              text: "◉ " + (ivpn.connected && ivpn.serverCity !== "" ? ivpn.serverCity : "No exit")
+              color: ivpn.connected ? root.accent : root.dim
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.bodySmall
+              elide: Text.ElideRight
+              width: parent.width
+            }
+            Text {
+              text: ivpn.connected ? String(ivpn.status.serverIp || "") : "not connected"
+              color: root.dim
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.caption
+              elide: Text.ElideRight
+              width: parent.width
+            }
+          }
+        }
+
         PanelSeparator { foreground: root.foreground }
 
         // Connection facts, only while there is a tunnel to describe.
@@ -158,9 +238,9 @@ Panel {
           Repeater {
             model: [
               { k: "Server", v: ivpn.serverHost },
-              { k: "Server IP", v: String(ivpn.status.serverIp || "") },
               { k: "Local IP", v: String(ivpn.status.localIp || "") },
-              { k: "DNS", v: String(ivpn.status.dns || "") }
+              { k: "DNS", v: String(ivpn.status.dns || "") },
+              { k: "Uptime", v: ivpn.durationText }
             ]
             Item {
               required property var modelData
@@ -191,10 +271,32 @@ Panel {
           }
         }
 
-        PanelSeparator {
-          visible: ivpn.connected
-          foreground: root.foreground
+        // Pause / resume. IVPN suspends the tunnel for a set number of minutes
+        // and restores it itself, which a plain disconnect does not do.
+        Row {
+          visible: ivpn.connected || ivpn.paused
+          width: parent.width
+          spacing: Style.space(8)
+
+          Button {
+            text: ivpn.paused ? "Resume" : ("Pause " + ivpn.pauseMinutes + "m")
+            bordered: true
+            foreground: root.foreground
+            fontFamily: root.fontFamily
+            onClicked: if (ivpn.paused) ivpn.resume(); else ivpn.pause(ivpn.pauseMinutes)
+          }
+
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            visible: ivpn.paused
+            text: "tunnel suspended"
+            color: root.dim
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+          }
         }
+
+        PanelSeparator { foreground: root.foreground }
 
         Column {
           width: parent.width
@@ -220,15 +322,47 @@ Panel {
 
         PanelSeparator { foreground: root.foreground }
 
-        Toggle {
+        Column {
           width: parent.width
-          label: "Firewall"
-          description: "Block all traffic outside the VPN"
-          checked: ivpn.firewallOn
-          foreground: root.foreground
-          fontFamily: root.fontFamily
-          onClicked: ivpn.toggleFirewall()
+          spacing: Style.space(8)
+
+          Toggle {
+            width: parent.width
+            label: "Firewall"
+            description: "Block all traffic outside the VPN"
+            checked: ivpn.firewallOn
+            foreground: root.foreground
+            fontFamily: root.fontFamily
+            onClicked: root.requestFirewall()
+          }
+
+          Toggle {
+            width: parent.width
+            label: "AntiTracker"
+            description: "Block ads and trackers at IVPN's DNS"
+            checked: ivpn.antitrackerOn
+            foreground: root.foreground
+            fontFamily: root.fontFamily
+            onClicked: ivpn.toggleAntitracker()
+          }
         }
+      }
+
+      ConfirmDialog {
+        id: firewallConfirm
+        anchors.fill: parent
+        opened: root.firewallConfirmOpen
+        z: 10
+        message: "Enable the firewall while disconnected? This blocks all network traffic until you connect."
+        confirmText: "Enable"
+        background: Color.background
+        foreground: root.foreground
+        fontFamily: root.fontFamily
+        onConfirmed: {
+          root.firewallConfirmOpen = false
+          ivpn.setFirewall(true)
+        }
+        onCanceled: root.firewallConfirmOpen = false
       }
     }
   }

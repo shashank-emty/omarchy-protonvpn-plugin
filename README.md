@@ -1,8 +1,8 @@
 # IVPN — Omarchy bar widget
 
-A bar-widget plugin for [Omarchy](https://omarchy.org/) that connects and
-disconnects [IVPN](https://www.ivpn.net/) from the top bar, with a searchable
-server picker, live connection details, and a firewall (kill switch) toggle.
+A bar-widget plugin for [Omarchy](https://omarchy.org/) that drives
+[IVPN](https://www.ivpn.net/) from the top bar: connect, disconnect, pause,
+pick a server, and see where your traffic comes out on a world map.
 
 ![IVPN widget panel](preview.png)
 
@@ -24,62 +24,92 @@ server picker, live connection details, and a firewall (kill switch) toggle.
 
   Until then the widget shows "Not logged in" and the switch is inert.
 
-The plugin only shells out to `ivpn` (`status`, `servers`, `connect`,
-`disconnect`, `firewall`). It never handles your Account ID, and the only file
-it writes is its own `~/.config/omarchy/ivpn-widget.json`, which remembers the
-selected server.
+The plugin shells out to `ivpn` only (`status`, `servers`, `connect`,
+`disconnect`, `connection -pause/-resume`, `firewall`, `antitracker`). It needs
+no elevated access, bundles no binaries, and never handles your Account ID.
 
-## Install
+It reads two files it does not own, both read-only:
 
-```bash
-omarchy plugin enable artemisa81.ivpn
-```
+- `~/.config/IVPN/ivpn-settings.json` — the IVPN desktop app's settings, for
+  exact server coordinates. The daemon's `servers.json` has them too but is
+  `0600 root`.
+- `/usr/share/zoneinfo/zone.tab` — public-domain timezone coordinates.
 
-If the bar does not pick it up, restart the shell:
-
-```bash
-omarchy restart shell
-```
+The only file it writes is `~/.config/omarchy/ivpn-widget.json`, holding the
+selected server and, if you enable the lookup below, your cached public address.
 
 ## Use
 
 - **Left click** — open the panel.
-- **Middle click** — connect/disconnect without opening the panel.
-- **Right click** — force a refresh.
+- **Middle click** — connect/disconnect without opening.
+- **Right click** — refresh.
 
-In the panel: `c` toggles the connection, `f` toggles the firewall, `r`
-refreshes, `Esc` closes.
+In the panel: `c` connect/disconnect, `p` pause/resume, `f` firewall,
+`a` AntiTracker, `r` refresh, `Esc` close.
 
-The panel shows the current server, its IP, your tunnel IP and the DNS in use
-while connected. Picking a different server while already connected moves the
-tunnel straight to it; picking one while disconnected just remembers it for the
-next connect. "Fastest server" maps to `ivpn connect -fastest`.
+### Map
 
-The **Firewall** toggle is IVPN's kill switch (`ivpn firewall -on|-off`): it
-blocks all traffic outside the tunnel. Turning it on while disconnected will cut
-your connectivity until you connect — that is what it is for.
+Home and the tunnel exit are plotted on an equirectangular world with an arc
+between them; multi-hop draws both legs. The land raster is generated from
+[Natural Earth](https://www.naturalearthdata.com/) 1:110m land polygons, which
+are public domain, and is embedded — the map needs no network and no map
+library.
+
+Exit coordinates come from IVPN's own data, falling back to a `zone.tab` city
+lookup. **Your** position is the reference city of your system timezone unless
+you turn on the public-IP lookup, and the panel says which of the two it is
+rather than implying a precision it does not have.
+
+### Pause
+
+`ivpn connection -pause` suspends the tunnel for a set number of minutes and
+restores it by itself, which a plain disconnect will not do. The button uses
+the `pauseMinutes` setting.
+
+### Firewall
+
+The **Firewall** toggle is IVPN's kill switch (`ivpn firewall -on|-off`), which
+blocks all traffic outside the tunnel. Enabling it while disconnected cuts your
+connectivity until you connect, so that direction asks for confirmation first;
+turning it off never does.
 
 ## Settings
 
-Configured per widget in `~/.config/omarchy/shell.json`:
+Per widget, in `~/.config/omarchy/shell.json`:
 
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `refreshIntervalSec` | `5` | How often `ivpn status` is polled (2–60). |
-| `protocol` | `WireGuard` | Which protocol's servers to list. One of `WireGuard`, `OpenVPN`. |
+| `protocol` | `WireGuard` | Which protocol to list servers for and connect with. `WireGuard` or `OpenVPN`. |
+| `pauseMinutes` | `5` | How long the pause button suspends the tunnel (1–1440). |
+| `publicIpLookup` | `false` | See below. |
 
 IVPN publishes a separate hostname per protocol (`sg.wg.ivpn.net` versus
-`sg.gw.ivpn.net`), so the list is filtered to one of them rather than showing
-each city twice. If the setting ever matches nothing, the widget falls back to
-listing every server instead of showing an empty picker.
+`sg.gw.ivpn.net`), so the list is filtered to one rather than showing each city
+twice. If the setting ever matches nothing, the widget lists every server
+instead of showing an empty picker.
+
+### `publicIpLookup`
+
+Off by default, and the widget's **only** network request. When on, it asks
+`https://api.ivpn.net/v4/geo-lookup` what address the internet sees, and shows
+your real city and ISP on the map instead of the timezone estimate.
+
+The reply carries an `isIvpnServer` flag, so the widget can tell your own
+address from the tunnel exit rather than inferring it from connection state. A
+lookup made while connected necessarily reports the exit, so your own address is
+only recorded during a disconnected moment and then cached; while connected the
+panel says "hidden by the tunnel" rather than showing a stale value as current.
 
 ## IPC
 
 ```bash
-omarchy-shell artemisa81.ivpn status       # -> Connected / Disconnected / Not logged in
+omarchy-shell artemisa81.ivpn status       # Connected / Paused / Disconnected / ...
 omarchy-shell artemisa81.ivpn toggle       # open or close the panel
 omarchy-shell artemisa81.ivpn connect
 omarchy-shell artemisa81.ivpn disconnect
+omarchy-shell artemisa81.ivpn pause
+omarchy-shell artemisa81.ivpn resume
 omarchy-shell artemisa81.ivpn refresh
 ```
 
@@ -89,3 +119,9 @@ omarchy-shell artemisa81.ivpn refresh
 omarchy plugin disable artemisa81.ivpn
 rm -rf ~/.config/omarchy/plugins/artemisa81.ivpn ~/.config/omarchy/ivpn-widget.json
 ```
+
+## Credits
+
+World land raster derived from [Natural Earth](https://www.naturalearthdata.com/)
+(public domain). Timezone coordinates from the IANA time zone database
+(public domain).
