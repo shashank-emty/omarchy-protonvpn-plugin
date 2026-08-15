@@ -63,8 +63,9 @@ rather than implying a precision it does not have.
 ### Pause
 
 `ivpn connection -pause` suspends the tunnel for a set number of minutes and
-restores it by itself, which a plain disconnect will not do. The button uses
-the `pauseMinutes` setting.
+restores it by itself, which a plain disconnect will not do. One button is
+rendered per entry in `pauseDurations`, and while paused they are replaced by a
+single **Resume**.
 
 ### Firewall
 
@@ -81,7 +82,7 @@ Per widget, in `~/.config/omarchy/shell.json`:
 | --- | --- | --- |
 | `refreshIntervalSec` | `5` | How often `ivpn status` is polled (2–60). |
 | `protocol` | `WireGuard` | Which protocol to list servers for and connect with. `WireGuard` or `OpenVPN`. |
-| `pauseMinutes` | `5` | How long the pause button suspends the tunnel (1–1440). |
+| `pauseDurations` | `5,15,30` | Durations offered as pause buttons. Up to four, each 1–1440 minutes. |
 | `publicIpLookup` | `false` | See below. |
 
 IVPN publishes a separate hostname per protocol (`sg.wg.ivpn.net` versus

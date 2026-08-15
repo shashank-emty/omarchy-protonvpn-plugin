@@ -105,7 +105,8 @@ Item {
 
   readonly property int refreshIntervalSec: intSetting("refreshIntervalSec", 5, 2, 60)
   readonly property string protocol: String(setting("protocol", "WireGuard"))
-  readonly property int pauseMinutes: intSetting("pauseMinutes", 5, 1, 1440)
+  readonly property var pauseDurations: Model.parseDurations(setting("pauseDurations", "5,15,30"))
+  readonly property int pauseMinutes: pauseDurations.length > 0 ? pauseDurations[0] : 5
   readonly property string statePath: Quickshell.env("HOME") + "/.config/omarchy/ivpn-widget.json"
   readonly property string appSettingsPath: Quickshell.env("HOME") + "/.config/IVPN/ivpn-settings.json"
 

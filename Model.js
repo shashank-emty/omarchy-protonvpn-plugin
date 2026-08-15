@@ -294,3 +294,28 @@ function cityCoords(zoneTabText, city) {
   }
   return null
 }
+
+// "5, 15, 30" -> [5, 15, 30]. IVPN accepts 1..1440 minutes; anything outside
+// that, duplicated, or unparseable is dropped rather than sent to the CLI.
+function parseDurations(text) {
+  var parts = String(text || "").split(",")
+  var out = []
+  var seen = {}
+  for (var i = 0; i < parts.length; i++) {
+    var n = parseInt(parts[i].trim(), 10)
+    if (!isFinite(n) || n < 1 || n > 1440 || seen[n]) continue
+    seen[n] = true
+    out.push(n)
+    if (out.length >= 4) break   // the row has to stay inside the panel
+  }
+  return out.length > 0 ? out : [5]
+}
+
+// 90 -> "1h 30m", 60 -> "1h", 5 -> "5m"
+function durationLabel(minutes) {
+  var n = Number(minutes)
+  if (!isFinite(n) || n < 1) return ""
+  if (n < 60) return n + "m"
+  var h = Math.floor(n / 60), m = n % 60
+  return m === 0 ? h + "h" : h + "h " + m + "m"
+}

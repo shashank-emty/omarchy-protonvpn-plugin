@@ -279,11 +279,24 @@ Panel {
           spacing: Style.space(8)
 
           Button {
-            text: ivpn.paused ? "Resume" : ("Pause " + ivpn.pauseMinutes + "m")
+            visible: ivpn.paused
+            text: "Resume"
             bordered: true
             foreground: root.foreground
             fontFamily: root.fontFamily
-            onClicked: if (ivpn.paused) ivpn.resume(); else ivpn.pause(ivpn.pauseMinutes)
+            onClicked: ivpn.resume()
+          }
+
+          Repeater {
+            model: ivpn.paused ? [] : ivpn.pauseDurations
+            Button {
+              required property var modelData
+              text: "Pause " + Model.durationLabel(modelData)
+              bordered: true
+              foreground: root.foreground
+              fontFamily: root.fontFamily
+              onClicked: ivpn.pause(modelData)
+            }
           }
 
           Text {

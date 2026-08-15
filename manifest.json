@@ -21,8 +21,8 @@
     "defaults": {
       "refreshIntervalSec": 5,
       "protocol": "WireGuard",
-      "pauseMinutes": 5,
-      "publicIpLookup": false
+      "publicIpLookup": false,
+      "pauseDurations": "5,15,30"
     },
     "schema": [
       {
@@ -47,14 +47,11 @@
         "defaultValue": "WireGuard"
       },
       {
-        "key": "pauseMinutes",
-        "type": "integer",
-        "label": "Pause duration (minutes)",
-        "description": "How long the pause button suspends the tunnel for.",
-        "min": 1,
-        "max": 1440,
-        "step": 1,
-        "defaultValue": 5
+        "key": "pauseDurations",
+        "type": "string",
+        "label": "Pause buttons (minutes)",
+        "description": "Comma-separated durations to offer as pause buttons, e.g. 5,15,30. Up to four, each 1-1440.",
+        "defaultValue": "5,15,30"
       },
       {
         "key": "publicIpLookup",
