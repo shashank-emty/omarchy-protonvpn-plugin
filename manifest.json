@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "id": "artemisa81.ivpn",
+  "name": "IVPN",
+  "version": "1.0.0",
+  "author": "artemisa81",
+  "license": "MIT",
+  "description": "Connect, disconnect and pick a server for IVPN from the Omarchy bar.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "IVPN",
+    "description": "Toggle the IVPN tunnel, switch servers, and control the firewall.",
+    "category": "Network",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "refreshIntervalSec": 5,
+      "protocol": "WireGuard"
+    },
+    "schema": [
+      {
+        "key": "refreshIntervalSec",
+        "type": "integer",
+        "label": "Refresh interval (seconds)",
+        "min": 2,
+        "max": 60,
+        "step": 1,
+        "defaultValue": 5
+      },
+      {
+        "key": "protocol",
+        "type": "string",
+        "label": "Server list protocol",
+        "defaultValue": "WireGuard"
+      }
+    ]
+  }
+}
