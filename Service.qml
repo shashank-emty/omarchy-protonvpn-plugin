@@ -120,7 +120,7 @@ Item {
 
   property string _statusOutput: ""
   property string _serversOutput: ""
-  // A missing `ivpn` binary may never produce an exit callback at all, so the
+  // A missing `protonvpn` binary may never produce an exit callback at all, so the
   // widget would sit on "Checking…" forever without a deadline.
   property bool _everParsed: false
 
@@ -159,21 +159,21 @@ Item {
   }
 
   function connectCommand() {
-    var cmd = ["ivpn", "connect", "-p", protocolFlag()]
-    if (selectedServer === Model.FASTEST) cmd.push("-fastest")
-    else cmd.push(selectedServer)
+    var cmd = ["protonvpn", "connect"]
+    if (selectedServer === Model.FASTEST) ; // No extra args needed for fastest
+    else cmd.push("--country", selectedServer)
     return cmd
   }
 
   function toggle() {
     if (controlProcess.running) return
     if (!loggedIn) {
-      fail("Not logged in. Run: ivpn login ACCOUNT_ID")
+      fail("Not logged in. Run: protonvpn signin")
       return
     }
     if (connected || paused || transitioning) {
       _desired = 0
-      controlProcess.command = ["ivpn", "disconnect"]
+      controlProcess.command = ["protonvpn", "disconnect"]
     } else {
       _desired = 1
       controlProcess.command = connectCommand()
@@ -181,19 +181,16 @@ Item {
     controlProcess.running = true
   }
 
-  function pause(minutes) {
+function pause(minutes) {
     if (controlProcess.running || !connected) return
-    var n = parseInt(String(minutes), 10)
-    if (!isFinite(n) || n < 1) n = 1
-    if (n > 1440) n = 1440
-    controlProcess.command = ["ivpn", "connection", "-pause", String(n)]
-    controlProcess.running = true
+    fail("Pause/resume not supported by Proton VPN CLI")
+    return
   }
 
-  function resume() {
+function resume() {
     if (controlProcess.running || !paused) return
-    controlProcess.command = ["ivpn", "connection", "-resume"]
-    controlProcess.running = true
+    fail("Pause/resume not supported by Proton VPN CLI")
+    return
   }
 
   function saveState() {
@@ -253,13 +250,13 @@ Item {
 
   function setFirewall(on) {
     if (firewallProcess.running) return
-    firewallProcess.command = ["ivpn", "firewall", on ? "-on" : "-off"]
+    firewallProcess.command = ["protonvpn", "config", "set", "kill-switch", on ? "standard" : "off"]
     firewallProcess.running = true
   }
 
   function toggleAntitracker() {
     if (antitrackerProcess.running) return
-    antitrackerProcess.command = ["ivpn", "antitracker", antitrackerOn ? "-off" : "-on"]
+    antitrackerProcess.command = ["protonvpn", "config", "set", "netshield", antitrackerOn ? "malware-ads-trackers" : "off"]
     antitrackerProcess.running = true
   }
 
@@ -371,11 +368,11 @@ Item {
   Process {
     id: statusProcess
     running: false
-    command: ["ivpn", "status"]
+    command: ["protonvpn", "status"]
     stdout: StdioCollector { id: statusStdout; waitForEnd: true; onStreamFinished: root._statusOutput = text }
     onExited: function(exitCode) {
       var text = String(statusStdout.text || root._statusOutput || "")
-      // `ivpn status` exits non-zero when logged out but still prints usable
+      // `protonvpn status` exits non-zero when logged out but still prints usable
       // state, so parse the output rather than trusting the exit code alone.
       if (text.trim() !== "") {
         root._everParsed = true
@@ -390,13 +387,13 @@ Item {
   Process {
     id: serversProcess
     running: false
-    command: ["ivpn", "servers"]
+    command: ["protonvpn", "countries", "list"]
     stdout: StdioCollector { id: serversStdout; waitForEnd: true; onStreamFinished: root._serversOutput = text }
     onExited: function(exitCode) {
       if (exitCode !== 0) return
-      var parsed = Model.parseServers(serversStdout.text || root._serversOutput || "", root.protocol)
+      var parsed = Model.parseCountries(serversStdout.text || root._serversOutput || "", root.protocol)
       // Only the synthetic "Fastest" row means the filter matched nothing.
-      if (parsed.length <= 1) parsed = Model.parseServers(serversStdout.text || root._serversOutput || "", "")
+      if (parsed.length <= 1) parsed = Model.parseCountries(serversStdout.text || root._serversOutput || "", "")
       root.servers = parsed
       root.serversLoaded = parsed.length > 1
     }
@@ -411,7 +408,7 @@ Item {
     onExited: function(exitCode) {
       if (exitCode !== 0) {
         root._desired = -1
-        root.fail(String(controlStderr.text || "").trim() || String(controlStdout.text || "").trim() || "IVPN command failed")
+        root.fail(String(controlStderr.text || "").trim() || String(controlStdout.text || "").trim() || "Command failed")
       } else {
         root.lastError = ""
         root.actionStatus = ""
@@ -429,7 +426,7 @@ Item {
     stderr: StdioCollector { id: firewallStderr; waitForEnd: true }
     onExited: function(exitCode) {
       if (exitCode !== 0)
-        root.fail(String(firewallStderr.text || "").trim() || String(firewallStdout.text || "").trim() || "Could not change the IVPN firewall")
+        root.fail(String(firewallStderr.text || "").trim() || String(firewallStdout.text || "").trim() || "Could not change the VPN firewall")
       settleTimer.ticks = 0
       settleTimer.restart()
     }

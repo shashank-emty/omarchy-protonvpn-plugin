@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "id": "artemisa81.ivpn",
-  "name": "IVPN",
+  "name": "Proton VPN",
   "version": "1.0.0",
   "author": "artemisa81",
   "license": "MIT",
-  "description": "Connect, disconnect and pick a server for IVPN from the Omarchy bar.",
+  "description": "Connect, disconnect and pick a server for Proton VPN from the Omarchy bar.",
   "kinds": [
     "bar-widget"
   ],
@@ -13,8 +13,8 @@
     "barWidget": "Panel.qml"
   },
   "barWidget": {
-    "displayName": "IVPN",
-    "description": "Toggle the IVPN tunnel, switch servers, and control the firewall.",
+    "displayName": "Proton VPN",
+    "description": "Toggle the Proton VPN tunnel, switch servers, and control the firewall.",
     "category": "Network",
     "allowMultiple": false,
     "defaultSection": "right",
@@ -39,7 +39,7 @@
         "key": "protocol",
         "type": "enum",
         "label": "Server list protocol",
-        "description": "IVPN publishes a separate hostname per protocol, so the picker lists one of them.",
+        "description": "Proton VPN publishes a separate hostname per protocol, so the picker lists one of them.",
         "options": [
           "WireGuard",
           "OpenVPN"
@@ -57,7 +57,7 @@
         "key": "publicIpLookup",
         "type": "boolean",
         "label": "Look up public IP",
-        "description": "Ask api.ivpn.net for your public address so the map can show your real location and ISP. Off by default: it is the widget's only network request.",
+        "description": "Ask api.protonvpn.com for your public address so the map can show your real location and ISP. Off by default: it is the widget's only network request.",
         "defaultValue": false
       }
     ]

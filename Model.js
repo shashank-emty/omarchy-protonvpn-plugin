@@ -18,7 +18,8 @@ function parseStatus(raw) {
     dns: "",
     splitTunnel: "",
     firewall: false,
-    allowLan: false
+    allowLan: false,
+    load: 0
   }
 
   var lines = String(raw || "").split("\n")
@@ -42,7 +43,7 @@ function parseStatus(raw) {
     var value = line.substring(idx + 1).trim()
 
     switch (key) {
-      case "VPN":
+      case "Status":
         out.state = value.toUpperCase()
         sawVpnLine = true
         break
@@ -57,6 +58,7 @@ function parseStatus(raw) {
       case "Split Tunnel": out.splitTunnel = value; break
       case "Firewall":     out.firewall = value.toLowerCase().indexOf("enabled") === 0; break
       case "Allow LAN":    out.allowLan = value.toLowerCase() === "true"; break
+      case "Load":         out.load = parseInt(value, 10) || 0; break
       default: break
     }
   }
@@ -146,6 +148,48 @@ function parseServers(raw, preferredProtocol) {
   return out
 }
 
+// Parse `protonvpn countries list` output
+function parseCountries(raw, preferredProtocol) {
+  var lines = String(raw || "").split("\n")
+  var out = []
+
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim()
+    if (line === "") continue
+
+    // Skip header/separator lines
+    if (line.indexOf("Country") === 0 || line.indexOf("---") === 0) continue
+
+    // Format: "CountryName               Code" (code is 2 chars at end)
+    // Split on 2+ spaces to separate name from code
+    var parts = line.split(/\s{2,}/)
+    if (parts.length < 2) continue
+
+    var countryName = parts[0]
+    var countryCode = parts[parts.length - 1]
+
+    // Must be a valid 2-letter country code
+    if (countryCode.length !== 2) continue
+
+    out.push({
+      value: countryCode,
+      label: countryName,
+      description: countryCode,
+      country: countryCode
+    })
+  }
+
+  // Sort alphabetically by country name
+  out.sort(function(a, b) {
+    if (a.label < b.label) return -1
+    if (a.label > b.label) return 1
+    return 0
+  })
+
+  out.unshift({ value: Model.FASTEST, label: "Fastest server", description: "Lowest latency available" })
+  return out
+}
+
 function statusText(state, loggedIn) {
   if (!loggedIn) return "Not logged in"
   switch (String(state || "").toUpperCase()) {
@@ -163,6 +207,32 @@ function statusText(state, loggedIn) {
 function elide(text) {
   var value = String(text || "").replace(/\s+/g, " ").trim()
   return value.length > 140 ? value.substring(0, 137) + "…" : value
+}
+
+// Parse `protonvpn config list` output
+function parseConfig(raw) {
+  var out = {
+    killSwitch: false,
+    netshield: false
+  }
+
+  var lines = String(raw || "").split("\n")
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim()
+    if (line === "") continue
+    var idx = line.indexOf(":")
+    if (idx < 0) continue
+    var key = line.substring(0, idx).trim()
+    var value = line.substring(idx + 1).trim()
+
+    if (key === "kill-switch") {
+      out.killSwitch = value.toLowerCase() === "standard" || value.toLowerCase() === "on"
+    } else if (key === "netshield") {
+      out.netshield = value.toLowerCase() !== "off" && value.toLowerCase() !== "malware-only"
+    }
+  }
+
+  return out
 }
 
 // ---------------------------------------------------------------------------
