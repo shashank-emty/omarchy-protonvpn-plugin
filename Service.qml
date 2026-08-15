@@ -44,6 +44,9 @@ Item {
 
   property string _statusOutput: ""
   property string _serversOutput: ""
+  // A missing `ivpn` binary may never produce an exit callback at all, so the
+  // widget would sit on "Checking…" forever without a deadline.
+  property bool _everParsed: false
 
   function setting(name, fallback) {
     var value = settings ? settings[name] : undefined
@@ -153,6 +156,16 @@ Item {
   }
 
   Timer {
+    // If nothing has parsed by the time this fires, IVPN is not answering:
+    // no binary on PATH, or the daemon is down.
+    id: watchdogTimer
+    interval: 12000
+    repeat: false
+    running: true
+    onTriggered: if (!root._everParsed) root.status = { state: "UNAVAILABLE", loggedIn: true, firewall: false }
+  }
+
+  Timer {
     id: actionStatusTimer
     interval: 3000
     repeat: false
@@ -169,6 +182,7 @@ Item {
       // `ivpn status` exits non-zero when logged out but still prints usable
       // state, so parse the output rather than trusting the exit code alone.
       if (text.trim() !== "") {
+        root._everParsed = true
         root.status = Model.parseStatus(text)
         if (root._desired !== -1 && root.connected === (root._desired === 1)) root._desired = -1
       } else if (exitCode !== 0) {

@@ -134,12 +134,14 @@ Panel {
         }
 
         Text {
-          visible: ivpn.actionStatus !== "" || ivpn.lastError !== "" || !ivpn.loggedIn
+          visible: ivpn.actionStatus !== "" || ivpn.lastError !== "" || !ivpn.loggedIn || ivpn.unavailable
           width: parent.width
-          text: !ivpn.loggedIn
-            ? "Not logged in — run: ivpn login ACCOUNT_ID"
-            : (ivpn.actionStatus !== "" ? ivpn.actionStatus : ivpn.lastError)
-          color: (!ivpn.loggedIn || (ivpn.lastError !== "" && ivpn.actionStatus === "")) ? root.urgent : root.dim
+          text: ivpn.unavailable
+            ? "IVPN is not responding — check: systemctl status ivpn-service"
+            : (!ivpn.loggedIn
+              ? "Not logged in — run: ivpn login ACCOUNT_ID"
+              : (ivpn.actionStatus !== "" ? ivpn.actionStatus : ivpn.lastError))
+          color: (ivpn.unavailable || !ivpn.loggedIn || (ivpn.lastError !== "" && ivpn.actionStatus === "")) ? root.urgent : root.dim
           font.family: root.fontFamily
           font.pixelSize: Style.font.bodySmall
           wrapMode: Text.WordWrap

@@ -4,6 +4,8 @@ A bar-widget plugin for [Omarchy](https://omarchy.org/) that connects and
 disconnects [IVPN](https://www.ivpn.net/) from the top bar, with a searchable
 server picker, live connection details, and a firewall (kill switch) toggle.
 
+![IVPN widget panel](preview.png)
+
 ## Requirements
 
 - Omarchy with the Quickshell plugin system (`omarchy plugin` / `omarchy bar`).
@@ -64,7 +66,7 @@ Configured per widget in `~/.config/omarchy/shell.json`:
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `refreshIntervalSec` | `5` | How often `ivpn status` is polled (2–60). |
-| `protocol` | `WireGuard` | Which protocol's servers to list (`WireGuard` or `OpenVPN`). |
+| `protocol` | `WireGuard` | Which protocol's servers to list. One of `WireGuard`, `OpenVPN`. |
 
 IVPN publishes a separate hostname per protocol (`sg.wg.ivpn.net` versus
 `sg.gw.ivpn.net`), so the list is filtered to one of them rather than showing
