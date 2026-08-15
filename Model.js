@@ -319,3 +319,16 @@ function durationLabel(minutes) {
   var h = Math.floor(n / 60), m = n % 60
   return m === 0 ? h + "h" : h + "h " + m + "m"
 }
+
+// "2d ago" / "3h ago" / "just now". A cached home reading is only as good as
+// its age, so the panel shows it rather than implying the position is live.
+function relativeAge(ms) {
+  var age = Number(ms)
+  if (!isFinite(age) || age < 0) return ""
+  var mins = Math.floor(age / 60000)
+  if (mins < 2) return "just now"
+  if (mins < 60) return mins + "m ago"
+  var hours = Math.floor(mins / 60)
+  if (hours < 24) return hours + "h ago"
+  return Math.floor(hours / 24) + "d ago"
+}

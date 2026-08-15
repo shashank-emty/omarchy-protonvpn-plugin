@@ -23,8 +23,12 @@ Panel {
   readonly property string toggleHint: ivpn.active ? "Disconnect" : "Connect"
   readonly property string tooltip: {
     if (!ivpn.loggedIn) return "IVPN — not logged in"
-    if (ivpn.connected && ivpn.serverCity !== "") return "IVPN — " + ivpn.serverCity
-    return "IVPN — " + ivpn.statusText
+    var head = ivpn.connected && ivpn.serverCity !== ""
+      ? "IVPN — " + ivpn.serverCity
+      : "IVPN — " + ivpn.statusText
+    var geo = ivpn.homeGeo
+    if (geo && geo.isp) head += "\nfrom " + String(geo.city || "") + " · " + String(geo.isp)
+    return head
   }
 
   property bool firewallConfirmOpen: false
@@ -238,7 +242,7 @@ Panel {
           Repeater {
             model: [
               { k: "Server", v: ivpn.serverHost },
-              { k: "Local IP", v: String(ivpn.status.localIp || "") },
+              { k: "Tunnel IP", v: String(ivpn.status.localIp || "") },
               { k: "DNS", v: String(ivpn.status.dns || "") },
               { k: "Uptime", v: ivpn.durationText }
             ]

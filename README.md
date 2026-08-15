@@ -102,6 +102,17 @@ lookup made while connected necessarily reports the exit, so your own address is
 only recorded during a disconnected moment and then cached; while connected the
 panel says "hidden by the tunnel" rather than showing a stale value as current.
 
+This is the setting to turn on if you travel. The timezone estimate is only as
+right as your system clock, and a laptop carried to another country without
+changing its clock will keep claiming the old city. A fresh lookup happens on
+every connect and disconnect, so the position corrects itself the first time the
+tunnel goes down in the new place. The cached reading is shown with its age
+(`203.0.113.45 · 2d ago`) so a stale one is visible as stale.
+
+Note that the **Tunnel IP** in the details is the address IVPN assigns you
+*inside* the tunnel. It is the same wherever you are and says nothing about
+your location; the same goes for your LAN address.
+
 ## IPC
 
 ```bash

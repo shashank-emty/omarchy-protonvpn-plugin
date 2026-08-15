@@ -88,7 +88,15 @@ Item {
     ? String(homeGeo.city)
     : String(timezone || "").split("/").pop().replace(/_/g, " ")
   readonly property string homeDetail: {
-    if (homeGeo) return String(homeGeo.ip || "") + (homeGeo.isp ? " · " + homeGeo.isp : "")
+    if (homeGeo) {
+      // The legend column is half the panel wide, so the ISP is dropped in
+      // favour of the age: travelling without changing the system clock is
+      // exactly when a cached reading goes wrong, and staleness is the thing
+      // you need to see. The ISP still shows in the widget tooltip.
+      var line = String(homeGeo.ip || "")
+      var age = (_now > 0 && isFinite(homeGeo.at)) ? Model.relativeAge(_now - homeGeo.at) : ""
+      return age !== "" && age !== "just now" ? line + " · " + age : line
+    }
     if (!publicIpLookup) return "from your timezone"
     // Every lookup made while the tunnel is up reports the exit, so a real
     // address can only be learned during a disconnected moment.
@@ -216,7 +224,8 @@ Item {
         country: String(geo.country || ""),
         isp: String(geo.isp || ""),
         lat: Number(geo.latitude),
-        lon: Number(geo.longitude)
+        lon: Number(geo.longitude),
+        at: Date.now()
       }
       if (geo.isIvpnServer === true) {
         root.exitGeo = record
@@ -318,7 +327,7 @@ Item {
     id: clockTimer
     interval: 1000
     repeat: true
-    running: root.connected
+    running: true
     triggeredOnStart: true
     onTriggered: root._now = Date.now()
   }
