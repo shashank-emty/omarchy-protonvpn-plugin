@@ -9,15 +9,14 @@ Item {
 
   property var settings: ({})
 
-  // Parsed `ivpn status`.
+  // Parsed `protonvpn status`.
   property var status: ({ state: "UNKNOWN", loggedIn: true, firewall: false })
+  // Parsed `protonvpn config list`.
+  property var config: ({ killSwitch: false, netshield: false })
   property var servers: []
   property bool serversLoaded: false
   property string selectedServer: Model.FASTEST
 
-  // IVPN's own app settings. Read-only, and the source of exact server
-  // coordinates: the daemon's servers.json has them too but is 0600 root.
-  property var appSettings: ({})
   property string zoneTabText: ""
   property string timezone: ""
 
@@ -33,51 +32,35 @@ Item {
     || state === "RECONNECTING" || state === "DISCONNECTING"
   readonly property bool unavailable: state === "UNAVAILABLE"
   readonly property bool active: _desired === -1 ? (connected || paused) : (_desired === 1)
-  readonly property bool firewallOn: status.firewall === true
+  readonly property bool firewallOn: config.killSwitch === true
   readonly property bool busy: statusProcess.running || serversProcess.running
-    || controlProcess.running || firewallProcess.running || antitrackerProcess.running
+    || configProcess.running || controlProcess.running || firewallProcess.running || antitrackerProcess.running
   readonly property string statusText: Model.statusText(state, loggedIn)
   readonly property string serverLabel: Model.serverLabel(status.server)
   readonly property string serverCity: Model.serverCity(status.server)
   readonly property string serverHost: Model.serverHost(status.server)
   readonly property string protocolLabel: Model.shortProtocol(status.protocol)
 
-  readonly property bool antitrackerOn: {
-    var at = appSettings && appSettings.daemonSettings ? appSettings.daemonSettings.AntiTracker : null
-    return !!(at && at.Enabled)
-  }
-  readonly property bool multiHop: !!(appSettings && appSettings.isMultiHop)
+  readonly property bool antitrackerOn: config.netshield === true
+  readonly property bool multiHop: false
 
-  // Where the tunnel comes out. IVPN's settings file carries exact coordinates,
-  // but it tracks the app's *selected* server, which can differ from a server
-  // connected via the CLI — so only trust it when the city agrees, and fall
-  // back to a zone.tab city lookup otherwise.
+  // Where the tunnel comes out. Proton VPN's CLI does not publish server
+  // coordinates, so the exit city is matched against zone.tab.
   readonly property var serverCoords: {
     if (exitGeo && connected && isFinite(exitGeo.lat)) return { lat: exitGeo.lat, lon: exitGeo.lon }
-    var entry = appSettings ? appSettings.serverEntry : null
-    var city = String(serverCity || "").replace(/\s*\([A-Z]{2}\)\s*$/, "").trim().toLowerCase()
-    if (entry && isFinite(entry.latitude) && isFinite(entry.longitude)
-        && (city === "" || String(entry.city || "").trim().toLowerCase() === city))
-      return { lat: entry.latitude, lon: entry.longitude }
     return Model.cityCoords(zoneTabText, serverCity)
   }
 
-  readonly property var exitCoords: {
-    if (!multiHop) return null
-    var ex = appSettings ? appSettings.serverExit : null
-    if (ex && isFinite(ex.latitude) && isFinite(ex.longitude)) return { lat: ex.latitude, lon: ex.longitude }
-    return null
-  }
+  readonly property var exitCoords: null
 
   // No network lookup by design, so "home" is the timezone's reference city.
   // Approximate, and labelled as such in the panel rather than dressed up as
   // a real position.
-  // Opt-in public-address lookup. api.ivpn.net/v4/geo-lookup returns an
-  // isIvpnServer flag, so the reply says for itself whether it measured your
-  // real ISP or the tunnel exit — no guessing from connection state.
+  // Opt-in public-address lookup. The connection state says for itself whether
+  // a reading is the real ISP or the tunnel exit.
   readonly property bool publicIpLookup: setting("publicIpLookup", false) === true
     || String(setting("publicIpLookup", false)) === "true"
-  property var homeGeo: null   // cached real address, only ever set when isIvpnServer is false
+  property var homeGeo: null   // cached real address, only ever set while disconnected
   property var exitGeo: null   // live reading of the tunnel exit
   property double _lastLookup: 0
 
@@ -116,10 +99,10 @@ Item {
   readonly property var pauseDurations: Model.parseDurations(setting("pauseDurations", "5,15,30"))
   readonly property int pauseMinutes: pauseDurations.length > 0 ? pauseDurations[0] : 5
   readonly property string statePath: Quickshell.env("HOME") + "/.config/omarchy/ivpn-widget.json"
-  readonly property string appSettingsPath: Quickshell.env("HOME") + "/.config/IVPN/ivpn-settings.json"
 
   property string _statusOutput: ""
   property string _serversOutput: ""
+  property string _configOutput: ""
   // A missing `protonvpn` binary may never produce an exit callback at all, so the
   // widget would sit on "Checking…" forever without a deadline.
   property bool _everParsed: false
@@ -144,7 +127,7 @@ Item {
   function refresh() {
     if (!statusProcess.running) statusProcess.running = true
     if (!serversLoaded && !serversProcess.running) serversProcess.running = true
-    appSettingsFile.reload()
+    if (!configProcess.running) configProcess.running = true
     geoLookup(false)
   }
 
@@ -214,24 +197,26 @@ function resume() {
       if (xhr.status !== 200) return
       var geo
       try { geo = JSON.parse(xhr.responseText) } catch (e) { return }
-      if (!geo || !isFinite(geo.latitude) || !isFinite(geo.longitude)) return
+      if (!geo || !geo.loc) return
+      var coords = String(geo.loc).split(",")
+      if (coords.length < 2 || !isFinite(parseFloat(coords[0])) || !isFinite(parseFloat(coords[1]))) return
       var record = {
-        ip: String(geo.ip_address || ""),
+        ip: String(geo.ip || ""),
         city: String(geo.city || geo.country || ""),
         country: String(geo.country || ""),
-        isp: String(geo.isp || ""),
-        lat: Number(geo.latitude),
-        lon: Number(geo.longitude),
+        isp: String(geo.org || ""),
+        lat: parseFloat(coords[0]),
+        lon: parseFloat(coords[1]),
         at: Date.now()
       }
-      if (geo.isIvpnServer === true) {
+      if (root.connected) {
         root.exitGeo = record
       } else {
         root.homeGeo = record
         root.saveState()
       }
     }
-    xhr.open("GET", "https://api.ivpn.net/v4/geo-lookup")
+    xhr.open("GET", "https://ipinfo.io/json")
     xhr.send()
   }
 
@@ -273,22 +258,6 @@ function resume() {
         if (saved && saved.homeGeo && isFinite(saved.homeGeo.lat)) root.homeGeo = saved.homeGeo
       } catch (e) {
         // A corrupt or absent file just means "no saved choice yet".
-      }
-    }
-  }
-
-  FileView {
-    // IVPN's desktop app settings, read only. Absent if the app has never run,
-    // in which case coordinates fall back to zone.tab.
-    id: appSettingsFile
-    path: root.appSettingsPath
-    watchChanges: true
-    onFileChanged: appSettingsFile.reload()
-    onLoaded: {
-      try {
-        root.appSettings = JSON.parse(appSettingsFile.text()) || ({})
-      } catch (e) {
-        root.appSettings = ({})
       }
     }
   }
@@ -400,6 +369,18 @@ function resume() {
   }
 
   Process {
+    id: configProcess
+    running: false
+    command: ["protonvpn", "config", "list"]
+    stdout: StdioCollector { id: configStdout; waitForEnd: true; onStreamFinished: root._configOutput = text }
+    onExited: function(exitCode) {
+      if (exitCode !== 0) return
+      var text = configStdout.text || root._configOutput || ""
+      if (text.trim() !== "") root.config = Model.parseConfig(text)
+    }
+  }
+
+  Process {
     id: controlProcess
     running: false
     command: []
@@ -426,7 +407,8 @@ function resume() {
     stderr: StdioCollector { id: firewallStderr; waitForEnd: true }
     onExited: function(exitCode) {
       if (exitCode !== 0)
-        root.fail(String(firewallStderr.text || "").trim() || String(firewallStdout.text || "").trim() || "Could not change the VPN firewall")
+        root.fail(String(firewallStderr.text || "").trim() || String(firewallStdout.text || "").trim() || "Could not change the kill switch")
+      if (!configProcess.running) configProcess.running = true
       settleTimer.ticks = 0
       settleTimer.restart()
     }
@@ -440,8 +422,8 @@ function resume() {
     stderr: StdioCollector { id: antitrackerStderr; waitForEnd: true }
     onExited: function(exitCode) {
       if (exitCode !== 0)
-        root.fail(String(antitrackerStderr.text || "").trim() || String(antitrackerStdout.text || "").trim() || "Could not change AntiTracker")
-      appSettingsFile.reload()
+        root.fail(String(antitrackerStderr.text || "").trim() || String(antitrackerStdout.text || "").trim() || "Could not change NetShield")
+      if (!configProcess.running) configProcess.running = true
       settleTimer.ticks = 0
       settleTimer.restart()
     }

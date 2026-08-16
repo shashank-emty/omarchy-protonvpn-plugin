@@ -22,10 +22,10 @@ Panel {
     : (ivpn.active ? barForeground : Qt.darker(barForeground, 1.55))
   readonly property string toggleHint: ivpn.active ? "Disconnect" : "Connect"
   readonly property string tooltip: {
-    if (!ivpn.loggedIn) return "IVPN — not logged in"
+    if (!ivpn.loggedIn) return "Proton VPN — not logged in"
     var head = ivpn.connected && ivpn.serverCity !== ""
-      ? "IVPN — " + ivpn.serverCity
-      : "IVPN — " + ivpn.statusText
+      ? "Proton VPN — " + ivpn.serverCity
+      : "Proton VPN — " + ivpn.statusText
     var geo = ivpn.homeGeo
     if (geo && geo.isp) head += "\nfrom " + String(geo.city || "") + " · " + String(geo.isp)
     return head
@@ -122,7 +122,7 @@ Panel {
         PanelHero {
           id: hero
           width: parent.width
-          title: "IVPN"
+          title: "Proton VPN"
           // The hero lays title and detail out on one row and lets the detail
           // pill take what it needs, so only something short belongs there.
           meta: ivpn.connected && ivpn.serverCity !== ""
@@ -162,9 +162,9 @@ Panel {
           visible: ivpn.actionStatus !== "" || ivpn.lastError !== "" || !ivpn.loggedIn || ivpn.unavailable
           width: parent.width
           text: ivpn.unavailable
-            ? "IVPN is not responding — check: systemctl status ivpn-service"
+            ? "Proton VPN is not responding — check: protonvpn status"
             : (!ivpn.loggedIn
-              ? "Not logged in — run: ivpn login ACCOUNT_ID"
+              ? "Not logged in — run: protonvpn signin"
               : (ivpn.actionStatus !== "" ? ivpn.actionStatus : ivpn.lastError))
           color: (ivpn.unavailable || !ivpn.loggedIn || (ivpn.lastError !== "" && ivpn.actionStatus === "")) ? root.urgent : root.dim
           font.family: root.fontFamily
@@ -275,10 +275,10 @@ Panel {
           }
         }
 
-        // Pause / resume. IVPN suspends the tunnel for a set number of minutes
-        // and restores it itself, which a plain disconnect does not do.
+        // Pause / resume. The Proton VPN CLI has no pause command, so this
+        // row is omitted rather than offering buttons that cannot work.
         Row {
-          visible: ivpn.connected || ivpn.paused
+          visible: false
           width: parent.width
           spacing: Style.space(8)
 
@@ -345,7 +345,7 @@ Panel {
 
           Toggle {
             width: parent.width
-            label: "Firewall"
+            label: "Kill Switch"
             description: "Block all traffic outside the VPN"
             checked: ivpn.firewallOn
             foreground: root.foreground
@@ -355,8 +355,8 @@ Panel {
 
           Toggle {
             width: parent.width
-            label: "AntiTracker"
-            description: "Block ads and trackers at IVPN's DNS"
+            label: "NetShield"
+            description: "Block ads and trackers at Proton VPN's DNS"
             checked: ivpn.antitrackerOn
             foreground: root.foreground
             fontFamily: root.fontFamily
@@ -370,7 +370,7 @@ Panel {
         anchors.fill: parent
         opened: root.firewallConfirmOpen
         z: 10
-        message: "Enable the firewall while disconnected? This blocks all network traffic until you connect."
+        message: "Enable the kill switch while disconnected? This blocks all network traffic until you connect."
         confirmText: "Enable"
         background: Color.background
         foreground: root.foreground

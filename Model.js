@@ -47,6 +47,9 @@ function parseStatus(raw) {
         out.state = value.toUpperCase()
         sawVpnLine = true
         break
+      case "Server":
+        out.server = value
+        break
       case "Account":
         if (value.toLowerCase().indexOf("not logged in") >= 0) out.loggedIn = false
         break
@@ -186,7 +189,7 @@ function parseCountries(raw, preferredProtocol) {
     return 0
   })
 
-  out.unshift({ value: Model.FASTEST, label: "Fastest server", description: "Lowest latency available" })
+  out.unshift({ value: FASTEST, label: "Fastest server", description: "Lowest latency available" })
   return out
 }
 
@@ -209,7 +212,8 @@ function elide(text) {
   return value.length > 140 ? value.substring(0, 137) + "…" : value
 }
 
-// Parse `protonvpn config list` output
+// Parse `protonvpn config list` output. Rows are space-separated
+// columns: "Setting                  Value".
 function parseConfig(raw) {
   var out = {
     killSwitch: false,
@@ -220,15 +224,20 @@ function parseConfig(raw) {
   for (var i = 0; i < lines.length; i++) {
     var line = lines[i].trim()
     if (line === "") continue
-    var idx = line.indexOf(":")
-    if (idx < 0) continue
-    var key = line.substring(0, idx).trim()
-    var value = line.substring(idx + 1).trim()
+    // Skip header/separator lines.
+    if (line.indexOf("Setting") === 0 || line.indexOf("---") === 0) continue
+
+    var parts = line.split(/\s{2,}/)
+    if (parts.length < 2) continue
+    var key = parts[0]
+    var value = parts.slice(1).join(" ").trim()
+    var lower = value.toLowerCase()
 
     if (key === "kill-switch") {
-      out.killSwitch = value.toLowerCase() === "standard" || value.toLowerCase() === "on"
+      out.killSwitch = lower === "standard" || lower === "on"
     } else if (key === "netshield") {
-      out.netshield = value.toLowerCase() !== "off" && value.toLowerCase() !== "malware-only"
+      // "Upgrade to enable" and "off" both mean it is not on.
+      out.netshield = lower !== "off" && lower !== "malware-only" && lower !== "upgrade to enable"
     }
   }
 
