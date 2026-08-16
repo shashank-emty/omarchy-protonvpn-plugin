@@ -80,8 +80,11 @@ Panel {
       Item {
         ProtonIcon {
           anchors.centerIn: parent
-          iconSize: Style.space(16)
+          iconSize: Style.bar.iconCanvas
+          locked: ivpn.connected
           color: root.barIconColor
+          badgeColor: Color.bar.background
+          fontFamily: root.fontFamily
         }
       }
     }
@@ -145,7 +148,10 @@ Panel {
               ProtonIcon {
                 anchors.centerIn: parent
                 iconSize: Style.font.display
+                locked: ivpn.connected
                 color: root.iconColor
+                badgeColor: Color.popups.background
+                fontFamily: root.fontFamily
               }
             }
           }
