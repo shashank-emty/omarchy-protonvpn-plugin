@@ -82,7 +82,6 @@ Panel {
           anchors.centerIn: parent
           iconSize: Style.space(16)
           color: root.barIconColor
-          backgroundColor: ivpn.active ? bar.background : Color.background
         }
       }
     }
@@ -147,7 +146,6 @@ Panel {
                 anchors.centerIn: parent
                 iconSize: Style.font.display
                 color: root.iconColor
-                backgroundColor: Color.background
               }
             }
           }
