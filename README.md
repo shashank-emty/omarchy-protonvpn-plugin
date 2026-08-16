@@ -1,4 +1,4 @@
-# IVPN — Omarchy bar widget
+# Proton VPN — Omarchy bar widget
 
 A bar-widget plugin for [Omarchy](https://omarchy.org/) that drives
 [IVPN](https://www.ivpn.net/) from the top bar: connect, disconnect, pause,
