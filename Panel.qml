@@ -76,7 +76,16 @@ Panel {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: ivpn.active ? "󰦝" : "󰦞"
+    iconComponent: Component {
+      Item {
+        ProtonIcon {
+          anchors.centerIn: parent
+          iconSize: Style.space(16)
+          color: root.barIconColor
+          backgroundColor: ivpn.active ? bar.background : Color.background
+        }
+      }
+    }
     foreground: root.barIconColor
     tooltipText: root.tooltip
     onPressed: function(buttonCode) {
@@ -133,11 +142,13 @@ Panel {
           fontFamily: root.fontFamily
           iconOpacity: ivpn.unavailable ? 0.5 : (ivpn.active ? 1.0 : 0.6)
           iconComponent: Component {
-            Text {
-              text: "󰦝"
-              color: root.iconColor
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.display
+            Item {
+              ProtonIcon {
+                anchors.centerIn: parent
+                iconSize: Style.font.display
+                color: root.iconColor
+                backgroundColor: Color.background
+              }
             }
           }
           trailingControl: Component {
